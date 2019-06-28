@@ -30,7 +30,7 @@ Resources:
       ApiId: !Ref Websocket
       RouteKey: test
       Target: !Sub integrations/${WebsocketRoutetestIntegration}
-      OperationName: echo
+      OperationName: echo-value
   WebsocketRoutetestResponse:
     Type: AWS::ApiGatewayV2::RouteResponse
     Properties:
