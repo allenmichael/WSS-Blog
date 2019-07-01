@@ -1,13 +1,67 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Resources:
-  Function:
+  Websocket:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Description: !Sub
+        - ${ResourceName} From Stack ${StackTagName} Environment ${EnvironmentTagName}
+        - ResourceName: Websocket
+      Name: !Sub
+        - ${StackTagName}-${EnvironmentTagName}-${ResourceName}
+        - ResourceName: Websocket
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+  WebsocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Websocket
+      StageName: !Ref EnvironmentAPIGatewayStageName
+      DeploymentId: !Ref WebsocketDeployment
+  WebsocketDeployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    Properties:
+      ApiId: !Ref Websocket
+    DependsOn:
+      - WebsocketRoutetest
+  WebsocketRoutetest:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Websocket
+      RouteKey: test
+      Target: !Sub integrations/${WebsocketRoutetestIntegration}
+  WebsocketRoutetestResponse:
+    Type: AWS::ApiGatewayV2::RouteResponse
+    Properties:
+      ApiId: !Ref Websocket
+      RouteId: !Ref WebsocketRoutetest
+      RouteResponseKey: $default
+  WebsocketRoutetestIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Websocket
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WSResponse.Arn}/invocations
+  WebsocketRoutetestIntegrationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WSResponse
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Websocket}/*/test
+  WebsocketRoutetestIntegrationResponse:
+    Type: AWS::ApiGatewayV2::IntegrationResponse
+    Properties:
+      ApiId: !Ref Websocket
+      IntegrationId: !Ref WebsocketRoutetestIntegration
+      IntegrationResponseKey: $default
+  WSResponse:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-Function
+      FunctionName: !Sub ${AWS::StackName}-WSResponse
       Description: !Sub
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: Function
+        - ResourceName: WSResponse
       CodeUri: src
       Handler: index.handler
       Runtime: nodejs10.x
@@ -16,61 +70,6 @@ Resources:
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
-  wssblog:
-    Type: AWS::ApiGatewayV2::Api
-    Properties:
-      Description: !Sub
-        - ${ResourceName} From Stack ${StackTagName} Environment ${EnvironmentTagName}
-        - ResourceName: wssblog
-      Name: !Sub
-        - ${StackTagName}-${EnvironmentTagName}-${ResourceName}
-        - ResourceName: wssblog
-      ProtocolType: WEBSOCKET
-      RouteSelectionExpression: $request.body.action
-  wssblogDeployment:
-    Type: AWS::ApiGatewayV2::Deployment
-    Properties:
-      ApiId: !Ref wssblog
-    DependsOn:
-      - wssblogRoutetest
-  wssblogStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      ApiId: !Ref wssblog
-      StageName: !Ref EnvironmentAPIGatewayStageName
-      DeploymentId: !Ref wssblogDeployment
-  wssblogRoutetestIntegration:
-    Type: AWS::ApiGatewayV2::Integration
-    Properties:
-      ApiId: !Ref wssblog
-      IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Function.Arn}/invocations
-  wssblogRoutetestIntegrationResponse:
-    Type: AWS::ApiGatewayV2::IntegrationResponse
-    Properties:
-      ApiId: !Ref wssblog
-      IntegrationId: !Ref wssblogRoutetestIntegration
-      IntegrationResponseKey: $default
-  wssblogRoutetestIntegrationPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref Function
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${wssblog}/*/test
-  wssblogRoutetest:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref wssblog
-      RouteKey: test
-      Target: !Sub integrations/${wssblogRoutetestIntegration}
-      OperationName: echo-value
-  wssblogRoutetestResponse:
-    Type: AWS::ApiGatewayV2::RouteResponse
-    Properties:
-      ApiId: !Ref wssblog
-      RouteId: !Ref wssblogRoutetest
-      RouteResponseKey: $default
 Parameters:
   StackTagName:
     Type: String
